@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview A flow for resizing an image, storing it, and tracking history.
+ * @fileOverview A flow for resizing an image.
  * - resizeImage - A function that handles the image resizing process.
  * - ResizeImageInput - The input type for the resizeImage function.
  * - ResizeImageOutput - The return type for the resizeImage function.
@@ -9,12 +9,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import sharp from 'sharp';
-import { v4 as uuidv4 } from 'uuid';
-import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
-import { app } from '@/lib/firebase';
-import { addHistoryEntry, HistoryEntryCreate } from '@/services/historyService';
-
-const storage = getStorage(app);
 
 const ResizeImageInputSchema = z.object({
   imageDataUri: z
@@ -28,8 +22,7 @@ const ResizeImageInputSchema = z.object({
 export type ResizeImageInput = z.infer<typeof ResizeImageInputSchema>;
 
 const ResizeImageOutputSchema = z.object({
-  resizedImageDataUri: z.string().describe('The resized image as a data URI for preview.'),
-  downloadUrl: z.string().describe('The public download URL of the resized image from Firebase Storage.'),
+  resizedImageDataUri: z.string().describe('The resized image as a data URI for preview and download.'),
   resizedSizeKB: z.number().describe('The final size of the resized image in kilobytes.'),
   resizedWidth: z.number().describe('The width of the resized image.'),
   resizedHeight: z.number().describe('The height of the resized image.'),
@@ -121,33 +114,8 @@ const resizeImageFlow = ai.defineFlow(
             throw new Error("Could not read resized image dimensions.");
         }
 
-        const uniqueId = uuidv4();
-        const fileExtension = fileName.split('.').pop() || format;
-        const newFileName = `resized-${uniqueId}.${fileExtension}`;
-
-        const thumbnailPath = `thumbnails/${newFileName}`;
-        const resizedImagePath = `resized/${newFileName}`;
-        
-        const thumbnailBuffer = await sharp(imageBuffer).resize(100, 100, { fit: 'inside' }).jpeg({ quality: 50 }).toBuffer();
-        const thumbnailUrl = await uploadImageAndGetUrl(thumbnailBuffer, thumbnailPath, 'image/jpeg');
-        const resizedImageUrl = await uploadImageAndGetUrl(resizedBuffer, resizedImagePath, mimeType);
-
-        const historyEntry: HistoryEntryCreate = {
-            fileName: newFileName,
-            originalSizeKB: parseFloat(originalSizeKB.toFixed(2)),
-            originalWidth: originalMetadata.width,
-            originalHeight: originalMetadata.height,
-            thumbnailUrl: thumbnailUrl,
-            resizedSizeKB: parseFloat(finalSizeKB.toFixed(2)),
-            resizedWidth: resizedMetadata.width,
-            resizedHeight: resizedMetadata.height,
-            resizedImageUrl: resizedImageUrl,
-        };
-        await addHistoryEntry(historyEntry);
-
         return {
           resizedImageDataUri: `data:${mimeType};base64,${resizedBuffer.toString('base64')}`,
-          downloadUrl: resizedImageUrl,
           resizedSizeKB: parseFloat(finalSizeKB.toFixed(2)),
           resizedWidth: resizedMetadata.width,
           resizedHeight: resizedMetadata.height,
@@ -156,7 +124,7 @@ const resizeImageFlow = ai.defineFlow(
     } catch (error: any) {
         console.error(`[resizeImageFlow] Execution failed. Input: { fileName: "${fileName}", targetSizeKB: ${targetSizeKB} }. Error:`, error.message);
         
-        const knownErrors = ['Could not read', 'Resize failed', 'Unable to save image'];
+        const knownErrors = ['Could not read', 'Resize failed'];
         if (error instanceof z.ZodError) {
           throw new Error(error.errors[0].message);
         }
@@ -167,14 +135,3 @@ const resizeImageFlow = ai.defineFlow(
     }
   }
 );
-
-async function uploadImageAndGetUrl(buffer: Buffer, path: string, mimeType: string): Promise<string> {
-    try {
-        const storageRef = ref(storage, path);
-        await uploadBytes(storageRef, buffer, { contentType: mimeType });
-        return await getDownloadURL(storageRef);
-    } catch (error) {
-        console.error(`Failed to save image to Firebase Storage at path: ${path}`, error);
-        throw new Error("Unable to save image.");
-    }
-}

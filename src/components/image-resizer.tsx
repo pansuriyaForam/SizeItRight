@@ -28,9 +28,7 @@ interface ImageFile extends File {
   height?: number;
 }
 
-interface ResizerProps {
-  onResizeComplete: () => void;
-}
+interface ResizerProps {}
 
 // Add global types for Google Picker and GSI
 declare global {
@@ -57,7 +55,7 @@ const formatBytes = (bytes: number): string => {
   return `${(bytes / 1024).toFixed(2)} KB`;
 };
 
-export function ImageResizer({ onResizeComplete }: ResizerProps) {
+export function ImageResizer({}: ResizerProps) {
   const [imageFile, setImageFile] = useState<ImageFile | null>(null);
   const [targetSize, setTargetSize] = useState<string>("100");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -282,10 +280,9 @@ export function ImageResizer({ onResizeComplete }: ResizerProps) {
       });
 
       setResizedImageUrl(result.resizedImageDataUri);
-      setDownloadUrl(result.downloadUrl);
+      setDownloadUrl(result.resizedImageDataUri);
       setResizedSize(result.resizedSizeKB);
       setResizedDimensions({width: result.resizedWidth, height: result.resizedHeight});
-      onResizeComplete();
     } catch (err: any) {
       const errorMessage =
         err.message || "An unexpected error occurred during resizing.";
@@ -539,11 +536,11 @@ export function ImageResizer({ onResizeComplete }: ResizerProps) {
             {isProcessing ? "Resizing..." : "Resize Now"}
           </Button>
         )}
-        {resizedImageUrl && downloadUrl && (
+        {resizedImageUrl && downloadUrl && imageFile && (
             <>
                 <Button variant="outline" onClick={handleReset}>Resize Another</Button>
                 <Button asChild>
-                    <a href={downloadUrl} download>
+                    <a href={downloadUrl} download={`resized-${imageFile.name}`}>
                         <Download className="mr-2 h-4 w-4"/>
                         Download
                     </a>

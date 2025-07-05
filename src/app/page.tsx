@@ -1,16 +1,9 @@
 "use client";
 
-import { useState } from 'react';
 import { ImageResizer } from "@/components/image-resizer";
-import { ResizeHistory } from '@/components/resize-history';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 export default function Home() {
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  const handleResizeComplete = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-background p-4 sm:p-6 md:p-8 font-body relative">
@@ -25,10 +18,7 @@ export default function Home() {
           Perfect Image Size. Every Time.
         </p>
       </div>
-      <ImageResizer onResizeComplete={handleResizeComplete} />
-      <div className="w-full flex justify-center mt-8">
-        <ResizeHistory refreshTrigger={refreshTrigger} />
-      </div>
+      <ImageResizer />
     </main>
   );
 }
