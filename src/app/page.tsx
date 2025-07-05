@@ -4,6 +4,7 @@ import { ImageResizer } from "@/components/image-resizer";
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info } from "lucide-react";
+import { Footer } from "@/components/footer";
 
 export default function Home() {
 
@@ -28,6 +29,7 @@ export default function Home() {
           ⚠️ We do not store your images. They’re processed in-memory and directly downloaded. No sign-ups. No spam. Just resizing, done right.
         </AlertDescription>
       </Alert>
+      <Footer />
     </main>
   );
 }
