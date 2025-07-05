@@ -10,7 +10,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import sharp from 'sharp';
 
-export const ResizeImageInputSchema = z.object({
+const ResizeImageInputSchema = z.object({
   imageDataUri: z
     .string()
     .describe(
@@ -20,7 +20,7 @@ export const ResizeImageInputSchema = z.object({
 });
 export type ResizeImageInput = z.infer<typeof ResizeImageInputSchema>;
 
-export const ResizeImageOutputSchema = z.object({
+const ResizeImageOutputSchema = z.object({
   resizedImageDataUri: z.string().describe('The resized image as a data URI.'),
   resizedSizeKB: z.number().describe('The final size of the resized image in kilobytes.'),
 });
