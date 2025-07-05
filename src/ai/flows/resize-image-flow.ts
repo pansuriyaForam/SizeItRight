@@ -136,8 +136,8 @@ const resizeImageFlow = ai.defineFlow(
             thumbnailUrl = await uploadImageAndGetUrl(thumbnailBuffer, thumbnailPath, 'image/jpeg');
             resizedImageUrl = await uploadImageAndGetUrl(resizedBuffer, resizedImagePath, mimeType);
         } catch (uploadError) {
-            console.error("Firebase Storage upload failed:", uploadError);
-            throw new Error("Failed to save the resized image to storage.");
+            console.error("Failed to save resized image:", uploadError);
+            throw new Error("Unable to save image.");
         }
 
         const historyEntry: HistoryEntryCreate = {
@@ -164,7 +164,7 @@ const resizeImageFlow = ai.defineFlow(
     } catch (error: any) {
         console.error(`[resizeImageFlow] Execution failed. Input: { fileName: "${fileName}", targetSizeKB: ${targetSizeKB} }. Error:`, error.message);
         
-        const knownErrors = ['Could not read', 'Resize failed', 'Failed to save'];
+        const knownErrors = ['Could not read', 'Resize failed', 'Unable to save image'];
         if (error instanceof z.ZodError) {
           throw new Error(error.errors[0].message);
         }
