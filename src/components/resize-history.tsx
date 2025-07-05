@@ -28,12 +28,18 @@ export function ResizeHistory({ refreshTrigger }: { refreshTrigger: number }) {
                 setHistory(entries);
             } catch (error: any) {
                 console.error("Failed to fetch resize history:", error);
-                // Only show toast if firebase is likely not configured.
-                if (error.code && error.code.includes('auth')) {
+                // Handle specific Firebase errors to guide the user.
+                if (error.code && error.code.includes('permission-denied')) {
                     toast({
                         variant: "destructive",
                         title: "History Unavailable",
-                        description: "Could not load resize history. Please ensure your Firebase configuration is correct in the .env file.",
+                        description: "Cloud Firestore API is not enabled. Please enable it in your Firebase project console to see history.",
+                    });
+                } else if (error.code) { // Catch other potential Firebase errors
+                     toast({
+                        variant: "destructive",
+                        title: "History Error",
+                        description: "Could not load resize history. Please check your Firebase configuration and internet connection.",
                     });
                 }
             } finally {
@@ -92,6 +98,7 @@ export function ResizeHistory({ refreshTrigger }: { refreshTrigger: number }) {
                                     <a href={entry.resizedImageUrl} download={entry.fileName}>
                                         <Download className="mr-2" /> Download Again
                                     </a>
+
                                 </Button>
                             </Card>
                         ))}
