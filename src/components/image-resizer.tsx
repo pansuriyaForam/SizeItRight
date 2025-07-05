@@ -26,17 +26,23 @@ interface ImageFile extends File {
   height?: number;
 }
 
+interface ResizerProps {
+  onResizeComplete: () => void;
+}
+
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return "0 KB";
   return `${(bytes / 1024).toFixed(2)} KB`;
 };
 
-export function ImageResizer() {
+export function ImageResizer({ onResizeComplete }: ResizerProps) {
   const [imageFile, setImageFile] = useState<ImageFile | null>(null);
   const [targetSize, setTargetSize] = useState<string>("100");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [resizedImageUrl, setResizedImageUrl] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [resizedSize, setResizedSize] = useState<number | null>(null);
+  const [resizedDimensions, setResizedDimensions] = useState<{width: number; height: number} | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,7 +75,7 @@ export function ImageResizer() {
       };
       reader.readAsDataURL(file);
     } else {
-      setError("Please upload a valid image file (e.g., PNG, JPG, GIF).");
+      setError("Please upload a valid image file (e.g., PNG, JPG, WebP).");
     }
   }, []);
 
@@ -127,10 +133,14 @@ export function ImageResizer() {
       const result = await resizeImage({
         imageDataUri,
         targetSizeKB,
+        fileName: imageFile.name,
       });
 
       setResizedImageUrl(result.resizedImageDataUri);
+      setDownloadUrl(result.downloadUrl);
       setResizedSize(result.resizedSizeKB);
+      setResizedDimensions({width: result.resizedWidth, height: result.resizedHeight});
+      onResizeComplete();
     } catch (err: any) {
       const errorMessage =
         err.message || "An unexpected error occurred during resizing.";
@@ -153,7 +163,9 @@ export function ImageResizer() {
     setTargetSize("100");
     setIsProcessing(false);
     setResizedImageUrl(null);
+    setDownloadUrl(null);
     setResizedSize(null);
+    setResizedDimensions(null);
     setError(null);
   };
 
@@ -174,11 +186,11 @@ export function ImageResizer() {
       <p className="mt-4 text-center text-muted-foreground">
         <span className="font-semibold text-primary">Click to upload</span> or drag and drop
       </p>
-      <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB</p>
+      <p className="text-xs text-muted-foreground">PNG, JPG, WebP up to 10MB</p>
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/png, image/jpeg, image/webp"
         onChange={onFileChange}
         className="hidden"
       />
@@ -233,7 +245,7 @@ export function ImageResizer() {
         </div>
       <h2 className="text-2xl font-semibold">Image Resized!</h2>
       <p className="text-muted-foreground">
-        Your image is now {resizedSize} KB.
+        Your image is now {resizedSize} KB ({resizedDimensions?.width}x{resizedDimensions?.height}).
       </p>
       <div className="relative rounded-lg overflow-hidden border">
         <NextImage
@@ -276,11 +288,11 @@ export function ImageResizer() {
             {isProcessing ? "Resizing..." : "Resize Now"}
           </Button>
         )}
-        {resizedImageUrl && (
+        {resizedImageUrl && downloadUrl && (
             <>
                 <Button variant="outline" onClick={handleReset}>Resize Another</Button>
                 <Button asChild>
-                    <a href={resizedImageUrl} download={`resized-image-${resizedSize}KB.png`}>
+                    <a href={downloadUrl} download>
                         <Download className="mr-2 h-4 w-4"/>
                         Download
                     </a>
