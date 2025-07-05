@@ -83,7 +83,7 @@ export function ImageResizer({ onResizeComplete }: ResizerProps) {
   // Effect to initialize Google APIs
   useEffect(() => {
     const initGis = () => {
-      if (window.google && window.google.accounts && clientId) {
+      if (window.google && window.google.accounts && clientId && !clientId.includes('YOUR_GOOGLE_CLIENT_ID')) {
         const client = window.google.accounts.oauth2.initTokenClient({
           client_id: clientId,
           scope: scope,
@@ -169,6 +169,17 @@ export function ImageResizer({ onResizeComplete }: ResizerProps) {
   };
 
   const handleDriveClick = () => {
+    if (!clientId || clientId.includes('YOUR_GOOGLE_CLIENT_ID')) {
+        const errorMessage = "Google Client ID is not configured. Please add a valid NEXT_PUBLIC_GOOGLE_CLIENT_ID to your .env file.";
+        setError(errorMessage);
+        toast({
+            variant: "destructive",
+            title: "Configuration Error",
+            description: errorMessage
+        });
+        return;
+    }
+
     if (!tokenClient) {
         setError("Google authentication is not ready. Please try again in a moment.");
         return;
