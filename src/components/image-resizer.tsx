@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, DragEvent } from "react";
 import NextImage from "next/image";
-import { UploadCloud, Loader2, Download, X, Image as ImageIcon, ChevronsLeftRight } from "lucide-react";
+import { UploadCloud, Loader2, Download, X, Image as ImageIcon, ChevronsLeftRight, Info } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { resizeImage } from "@/ai/flows/resize-image-flow";
 import { Slider } from "@/components/ui/slider";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ImageFile extends File {
   preview: string;
@@ -228,7 +229,21 @@ export function ImageResizer({ onResizeComplete }: ResizerProps) {
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="target-size">Desired File Size (KB)</Label>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="target-size">Desired File Size (KB)</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  We try to match your desired file size, but the final size may vary slightly depending on image format and quality limits.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <Input
           id="target-size"
           type="number"
