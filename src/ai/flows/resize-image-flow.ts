@@ -42,6 +42,8 @@ const resizeImageFlow = ai.defineFlow(
   async ({ imageDataUri, targetSizeKB, fileName }) => {
     try {
         const targetSizeBytes = targetSizeKB * 1024;
+        const toleranceBytes = 2 * 1024; // +/- 2 KB
+        const MAX_ATTEMPTS = 10;
         
         const [header, base64Data] = imageDataUri.split(',');
         if (!header || !base64Data) {
@@ -62,8 +64,6 @@ const resizeImageFlow = ai.defineFlow(
             throw new Error("Resize failed: invalid or corrupt image format.");
         }
 
-        const originalSizeKB = imageBuffer.length / 1024;
-        
         if (!originalMetadata.width || !originalMetadata.height) {
             throw new Error("Could not read original image dimensions.");
         }
@@ -72,40 +72,52 @@ const resizeImageFlow = ai.defineFlow(
         if (!format || !['jpeg', 'png', 'webp'].includes(format)) {
             throw new Error(`Resize failed: unsupported image format '${format}'. Please use JPG, PNG, or WebP.`);
         }
+        
+        let resizedBuffer = imageBuffer;
+        const originalSize = imageBuffer.length;
 
-        let resizedBuffer: Buffer;
-        const isCloseEnough = Math.abs(originalSizeKB - targetSizeKB) <= 5;
-
-        if (isCloseEnough) {
-            resizedBuffer = imageBuffer;
-        } else {
-            const sharpInstance = sharp(imageBuffer);
-
-            if (originalSizeKB > targetSizeKB) {
-                let quality = 80;
-                resizedBuffer = await sharpInstance[format]({ quality }).toBuffer();
-                
-                while (resizedBuffer.length > targetSizeBytes && quality > 10) {
-                    quality -= 5;
-                    resizedBuffer = await sharpInstance[format]({ quality }).toBuffer();
-                }
+        // Step 1: If image is too large, compress it down.
+        if (originalSize > targetSizeBytes + toleranceBytes) {
+            if (format === 'png') {
+                // PNG is lossless; perform a single, strong compression attempt.
+                resizedBuffer = await sharp(imageBuffer).png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
             } else {
-                const { width, height } = originalMetadata;
-                resizedBuffer = await sharpInstance
-                    .resize(Math.round(width * 1.15), Math.round(height * 1.15))
-                    .toBuffer();
-
-                if (resizedBuffer.length < targetSizeBytes) {
-                    const paddingSize = targetSizeBytes - resizedBuffer.length;
-                    if (paddingSize > 0) {
-                        const padding = Buffer.alloc(paddingSize, 0);
-                        resizedBuffer = await sharp(resizedBuffer)
-                            .withMetadata({ icc: padding })
-                            .toBuffer();
+                // For JPG/WebP, iterate to reduce quality.
+                let quality = 90;
+                let lastBuffer = resizedBuffer;
+                for (let i = 0; i < MAX_ATTEMPTS; i++) {
+                    lastBuffer = await sharp(imageBuffer)[format]({ quality }).toBuffer();
+                    // Stop if we are now under the target size, as padding can handle it from here.
+                    if (lastBuffer.length < targetSizeBytes) {
+                        break;
                     }
+                    // Or stop if we are within the tolerance range from above.
+                    if (lastBuffer.length <= targetSizeBytes + toleranceBytes) {
+                        break;
+                    }
+                    quality -= 5;
+                    if (quality < 10) break;
                 }
+                resizedBuffer = lastBuffer;
             }
         }
+        
+        // Step 2: If the image is (or has become) too small, pad it up.
+        if (resizedBuffer.length < targetSizeBytes - toleranceBytes) {
+            const paddingSize = targetSizeBytes - resizedBuffer.length;
+            if (paddingSize > 0) {
+                // Add invisible metadata to increase size without affecting quality.
+                const padding = Buffer.alloc(paddingSize);
+                resizedBuffer = await sharp(resizedBuffer).withMetadata({ icc: padding }).toBuffer();
+            }
+
+            // If padding overshot the target, do one final, mild re-compression.
+            if (resizedBuffer.length > targetSizeBytes + toleranceBytes && format !== 'png') {
+                resizedBuffer = await sharp(resizedBuffer)[format]({ quality: 85 }).toBuffer();
+            }
+        }
+        
+        console.log(`Closest match: ${(resizedBuffer.length / 1024).toFixed(2)} KB for target ${targetSizeKB} KB`);
         
         const resizedMetadata = await sharp(resizedBuffer).metadata();
         const finalSizeKB = resizedBuffer.length / 1024;
