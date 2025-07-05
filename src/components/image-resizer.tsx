@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
+import { resizeImage } from "@/ai/flows/resize-image-flow";
 
 interface ImageFile extends File {
   preview: string;
@@ -38,6 +40,7 @@ export function ImageResizer() {
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const handleFile = useCallback((file: File) => {
     if (file && file.type.startsWith("image/")) {
@@ -96,20 +99,50 @@ export function ImageResizer() {
     }
   };
 
+  const fileToDataUri = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleResize = async () => {
     if (!imageFile || !targetSize) return;
 
     setIsProcessing(true);
     setError(null);
 
-    // Simulate API call to a backend/Firebase Function for resizing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const imageDataUri = await fileToDataUri(imageFile);
+      const targetSizeKB = parseInt(targetSize, 10);
 
-    // In a real app, this response would come from the server
-    setResizedImageUrl(imageFile.preview); // Mock: use the same image
-    setResizedSize(parseFloat(targetSize));
+      if (isNaN(targetSizeKB) || targetSizeKB <= 0) {
+        throw new Error("Please enter a valid positive number for target size.");
+      }
 
-    setIsProcessing(false);
+      const result = await resizeImage({
+        imageDataUri,
+        targetSizeKB,
+      });
+
+      setResizedImageUrl(result.resizedImageDataUri);
+      setResizedSize(result.resizedSizeKB);
+    } catch (err: any) {
+      const errorMessage =
+        err.message || "An unexpected error occurred during resizing.";
+      setError(errorMessage);
+      toast({
+        variant: "destructive",
+        title: "Resize Failed",
+        description: errorMessage,
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleReset = () => {
