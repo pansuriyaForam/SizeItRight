@@ -5,8 +5,13 @@ import Script from "next/script";
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'SizeItRight',
-  description: 'Perfect Image Size. Every Time.',
+  title: 'SizeItRight — Resize Images to Fit KB Limits (No Signup)',
+  description: 'Resize images to a perfect KB limit for government and college forms. No login. No tracking. Just resizing.',
+  keywords: 'resize image KB, increase image size, compress image online, image to 50 KB, passport photo KB limit',
+  openGraph: {
+    title: 'SizeItRight — Resize Images to Fit KB Limits (No Signup)',
+    description: 'Resize images to a perfect KB limit for government and college forms. No login. No tracking. Just resizing.',
+  },
 };
 
 export default function RootLayout({

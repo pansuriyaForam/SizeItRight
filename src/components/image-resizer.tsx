@@ -68,6 +68,7 @@ export function ImageResizer({}: ResizerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [comparisonValue, setComparisonValue] = useState(50);
+  const [showAd, setShowAd] = useState<boolean>(false);
 
   // Google Picker State
   const [isPickerApiReady, setIsPickerApiReady] = useState(false);
@@ -264,6 +265,7 @@ export function ImageResizer({}: ResizerProps) {
 
     setIsProcessing(true);
     setError(null);
+    setShowAd(false);
 
     try {
       const imageDataUri = await fileToDataUri(imageFile);
@@ -310,6 +312,7 @@ export function ImageResizer({}: ResizerProps) {
     setResizedDimensions(null);
     setError(null);
     setComparisonValue(50);
+    setShowAd(false);
   };
 
   const renderUploadState = () => (
@@ -504,6 +507,18 @@ export function ImageResizer({}: ResizerProps) {
                 <p className="text-sm text-muted-foreground">{resizedDimensions?.width} x {resizedDimensions?.height}</p>
             </div>
         </div>
+
+        {/* Ad Placeholder Section */}
+        {showAd && (
+            <div className="mt-6 p-4 border border-dashed rounded-lg text-center space-y-2">
+                <p className="text-sm text-muted-foreground">
+                    Thanks for using SizeItRight! You can support us by viewing this sponsor ❤️
+                </p>
+                <div className="bg-muted/50 w-full h-24 flex items-center justify-center rounded-md">
+                    <p className="text-muted-foreground text-xs">Google Ad Placeholder</p>
+                </div>
+            </div>
+        )}
     </div>
   );
 
@@ -539,7 +554,7 @@ export function ImageResizer({}: ResizerProps) {
         {resizedImageUrl && downloadUrl && imageFile && (
             <>
                 <Button variant="outline" onClick={handleReset}>Resize Another</Button>
-                <Button asChild>
+                <Button asChild onClick={() => setShowAd(true)}>
                     <a href={downloadUrl} download={`resized-${imageFile.name}`}>
                         <Download className="mr-2 h-4 w-4"/>
                         Download

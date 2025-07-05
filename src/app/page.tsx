@@ -2,6 +2,8 @@
 
 import { ImageResizer } from "@/components/image-resizer";
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 
 export default function Home() {
 
@@ -19,6 +21,13 @@ export default function Home() {
         </p>
       </div>
       <ImageResizer />
+      <Alert className="w-full max-w-lg mt-8 bg-yellow-50 border-yellow-200 text-yellow-900 dark:bg-yellow-900/30 dark:border-yellow-400/20 dark:text-yellow-200 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-300">
+        <Info className="h-4 w-4" />
+        <AlertTitle>Privacy & Security</AlertTitle>
+        <AlertDescription>
+          ⚠️ We do not store your images. They’re processed in-memory and directly downloaded. No sign-ups. No spam. Just resizing, done right.
+        </AlertDescription>
+      </Alert>
     </main>
   );
 }
