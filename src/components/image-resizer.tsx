@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, DragEvent } from "react";
 import NextImage from "next/image";
-import { UploadCloud, Loader2, Download, X, Image as ImageIcon } from "lucide-react";
+import { UploadCloud, Loader2, Download, X, Image as ImageIcon, ChevronsLeftRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { resizeImage } from "@/ai/flows/resize-image-flow";
+import { Slider } from "@/components/ui/slider";
 
 interface ImageFile extends File {
   preview: string;
@@ -47,6 +48,7 @@ export function ImageResizer({ onResizeComplete }: ResizerProps) {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [comparisonValue, setComparisonValue] = useState(50);
 
   const handleFile = useCallback((file: File) => {
     if (file && file.type.startsWith("image/")) {
@@ -167,6 +169,7 @@ export function ImageResizer({ onResizeComplete }: ResizerProps) {
     setResizedSize(null);
     setResizedDimensions(null);
     setError(null);
+    setComparisonValue(50);
   };
 
   const renderUploadState = () => (
@@ -238,24 +241,95 @@ export function ImageResizer({ onResizeComplete }: ResizerProps) {
     </div>
   );
 
-  const renderResultState = () => resizedImageUrl && (
-    <div className="text-center space-y-4">
-        <div className="w-20 h-20 bg-green-100 rounded-full mx-auto flex items-center justify-center">
-            <Download className="w-10 h-10 text-green-600" />
+  const renderResultState = () => resizedImageUrl && imageFile && (
+    <div className="space-y-4">
+        <div className="text-center">
+            <h2 className="text-2xl font-semibold">Comparison</h2>
+            <p className="text-muted-foreground">Your image has been resized successfully.</p>
         </div>
-      <h2 className="text-2xl font-semibold">Image Resized!</h2>
-      <p className="text-muted-foreground">
-        Your image is now {resizedSize} KB ({resizedDimensions?.width}x{resizedDimensions?.height}).
-      </p>
-      <div className="relative rounded-lg overflow-hidden border">
-        <NextImage
-          src={resizedImageUrl}
-          alt="Resized image preview"
-          width={400}
-          height={300}
-          className="w-full h-auto object-contain max-h-[300px]"
-        />
-      </div>
+
+        {/* Desktop: Slider comparison */}
+        <div className="hidden md:block">
+            <div className="relative w-full mx-auto aspect-video overflow-hidden rounded-lg border group shadow-inner">
+                {/* Original Image (Bottom Layer) */}
+                <NextImage
+                    src={imageFile.preview}
+                    alt="Original image"
+                    fill
+                    className="object-contain"
+                />
+                
+                {/* Resized Image (Top Layer, clipped) */}
+                <div 
+                    className="absolute inset-0" 
+                    style={{ clipPath: `polygon(0 0, ${comparisonValue}% 0, ${comparisonValue}% 100%, 0 100%)` }}
+                >
+                    <NextImage
+                        src={resizedImageUrl}
+                        alt="Resized image"
+                        fill
+                        className="object-contain"
+                    />
+                </div>
+                <Slider
+                    value={[comparisonValue]}
+                    onValueChange={(v) => setComparisonValue(v[0])}
+                    max={100}
+                    step={0.1}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize group-hover:opacity-100 transition-opacity [&>span]:bg-transparent"
+                />
+                <div 
+                    className="absolute top-0 bottom-0 w-1 bg-white/50 backdrop-blur-sm pointer-events-none transition-opacity opacity-0 group-hover:opacity-100"
+                    style={{ left: `${comparisonValue}%`, transform: 'translateX(-50%)' }}
+                >
+                    <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-10 w-10 rounded-full bg-white/80 border-2 border-white flex items-center justify-center shadow-lg">
+                        <ChevronsLeftRight className="h-5 w-5 text-foreground" />
+                    </div>
+                </div>
+                <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md font-semibold">BEFORE</div>
+                <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md font-semibold">AFTER</div>
+            </div>
+        </div>
+
+        {/* Mobile: Stacked comparison */}
+        <div className="md:hidden space-y-6">
+            <div>
+                <h3 className="font-semibold mb-2 text-muted-foreground text-center">Before</h3>
+                <div className="relative aspect-video rounded-lg overflow-hidden border">
+                    <NextImage
+                        src={imageFile.preview}
+                        alt="Original image"
+                        fill
+                        className="object-contain"
+                    />
+                </div>
+            </div>
+            <div>
+                <h3 className="font-semibold mb-2 text-muted-foreground text-center">After</h3>
+                <div className="relative aspect-video rounded-lg overflow-hidden border">
+                    <NextImage
+                        src={resizedImageUrl}
+                        alt="Resized image"
+                        fill
+                        className="object-contain"
+                    />
+                </div>
+            </div>
+        </div>
+        
+        {/* Details Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center pt-2">
+            <div className="border p-3 rounded-lg space-y-1">
+                <h4 className="font-semibold">Original</h4>
+                <p className="text-sm text-muted-foreground">{formatBytes(imageFile.size)}</p>
+                <p className="text-sm text-muted-foreground">{imageFile.width} x {imageFile.height}</p>
+            </div>
+            <div className="border border-primary bg-primary/10 p-3 rounded-lg space-y-1">
+                <h4 className="font-semibold">Resized</h4>
+                <p className="text-sm text-muted-foreground">{resizedSize} KB</p>
+                <p className="text-sm text-muted-foreground">{resizedDimensions?.width} x {resizedDimensions?.height}</p>
+            </div>
+        </div>
     </div>
   );
 
