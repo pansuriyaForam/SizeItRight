@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
+import Script from "next/script";
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -30,6 +31,8 @@ export default function RootLayout({
           {children}
           <Toaster />
         </ThemeProvider>
+        <Script src="https://accounts.google.com/gsi/client" strategy="lazyOnload" async defer></Script>
+        <Script src="https://apis.google.com/js/api.js" strategy="lazyOnload" async defer></Script>
       </body>
     </html>
   );

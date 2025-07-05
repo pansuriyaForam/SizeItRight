@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useRef, DragEvent } from "react";
+import { useState, useCallback, useRef, DragEvent, useEffect } from "react";
 import NextImage from "next/image";
-import { UploadCloud, Loader2, Download, X, Image as ImageIcon, ChevronsLeftRight, Info } from "lucide-react";
+import { UploadCloud, Loader2, Download, X, Image as ImageIcon, ChevronsLeftRight, Info, FolderUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,26 @@ interface ResizerProps {
   onResizeComplete: () => void;
 }
 
+// Add global types for Google Picker and GSI
+declare global {
+  interface Window {
+    google: {
+      accounts: {
+        oauth2: {
+          initTokenClient: (config: any) => any;
+          hasGrantedAllScopes: (token: any, scope: string) => boolean;
+        };
+      };
+      picker: any;
+    };
+    gapi: {
+      load: (api: string, callback: () => void) => void;
+      client: any;
+      auth: any;
+    };
+  }
+}
+
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return "0 KB";
   return `${(bytes / 1024).toFixed(2)} KB`;
@@ -50,6 +70,117 @@ export function ImageResizer({ onResizeComplete }: ResizerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [comparisonValue, setComparisonValue] = useState(50);
+
+  // Google Picker State
+  const [isPickerApiReady, setIsPickerApiReady] = useState(false);
+  const [tokenClient, setTokenClient] = useState<any>(null);
+  const [oauthToken, setOauthToken] = useState<any>(null);
+
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const scope = "https://www.googleapis.com/auth/drive.readonly";
+
+  // Effect to initialize Google APIs
+  useEffect(() => {
+    const initGis = () => {
+      if (window.google && window.google.accounts && clientId) {
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: scope,
+          callback: (tokenResponse: any) => {
+            if (tokenResponse && tokenResponse.access_token) {
+              setOauthToken(tokenResponse);
+              createPicker(tokenResponse.access_token);
+            } else {
+              setError("Failed to get authentication token from Google.");
+            }
+          },
+        });
+        setTokenClient(client);
+      }
+    };
+
+    const gapiLoad = () => {
+      if (window.gapi) {
+        window.gapi.load("picker", () => {
+          setIsPickerApiReady(true);
+        });
+      }
+    };
+    
+    const checkScripts = setInterval(() => {
+      if (window.google && window.gapi) {
+        clearInterval(checkScripts);
+        initGis();
+        gapiLoad();
+      }
+    }, 100);
+
+    return () => clearInterval(checkScripts);
+  }, [clientId]);
+
+  const createPicker = (accessToken: string) => {
+    if (!isPickerApiReady || !accessToken || !apiKey) {
+      setError("Google Picker is not ready. Please ensure API key and Client ID are configured.");
+      return;
+    }
+    const view = new window.google.picker.View(window.google.picker.ViewId.PHOTOS);
+    view.setMimeTypes("image/png,image/jpeg,image/webp");
+    
+    const picker = new window.google.picker.PickerBuilder()
+      .addView(view)
+      .setOAuthToken(accessToken)
+      .setDeveloperKey(apiKey)
+      .setCallback(pickerCallback)
+      .build();
+    picker.setVisible(true);
+  };
+
+  const pickerCallback = async (data: any) => {
+    if (data.action === window.google.picker.Action.PICKED) {
+      setIsProcessing(true);
+      setError(null);
+      try {
+        const doc = data.docs[0];
+        const fileId = doc.id;
+        const accessToken = oauthToken.access_token;
+  
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+  
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(`Failed to download file: ${errorData.error.message || res.statusText}`);
+        }
+  
+        const blob = await res.blob();
+        const file = new File([blob], doc.name, { type: doc.mimeType });
+        handleFile(file);
+      } catch (err: any) {
+        setError(`Could not retrieve file from Drive: ${err.message}`);
+        toast({ variant: "destructive", title: "Drive Error", description: `Could not retrieve file: ${err.message}` });
+      } finally {
+        setIsProcessing(false);
+      }
+    }
+  };
+
+  const handleDriveClick = () => {
+    if (!tokenClient) {
+        setError("Google authentication is not ready. Please try again in a moment.");
+        return;
+    };
+
+    if (oauthToken && window.google.accounts.oauth2.hasGrantedAllScopes(oauthToken, scope)) {
+        createPicker(oauthToken.access_token);
+    } else {
+        tokenClient.requestAccessToken({ prompt: "consent" });
+    }
+  };
+
 
   const handleFile = useCallback((file: File) => {
     if (file && file.type.startsWith("image/")) {
@@ -174,31 +305,51 @@ export function ImageResizer({ onResizeComplete }: ResizerProps) {
   };
 
   const renderUploadState = () => (
-    <div
-      onDragEnter={handleDrag}
-      onDragLeave={handleDrag}
-      onDragOver={handleDrag}
-      onDrop={handleDrop}
-      onClick={() => fileInputRef.current?.click()}
-      className={cn(
-        "flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-200",
-        isDragging ? "border-primary bg-primary/10" : "border-border hover:border-primary"
-      )}
-      data-ai-hint="cloud upload"
-    >
-      <UploadCloud className="w-12 h-12 text-muted-foreground" />
-      <p className="mt-4 text-center text-muted-foreground">
-        <span className="font-semibold text-primary">Click to upload</span> or drag and drop
-      </p>
-      <p className="text-xs text-muted-foreground">PNG, JPG, WebP up to 10MB</p>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/png, image/jpeg, image/webp"
-        onChange={onFileChange}
-        className="hidden"
-      />
-    </div>
+    <>
+        <div
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+        className={cn(
+            "flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-200",
+            isDragging ? "border-primary bg-primary/10" : "border-border hover:border-primary"
+        )}
+        data-ai-hint="cloud upload"
+        >
+            <UploadCloud className="w-12 h-12 text-muted-foreground" />
+            <p className="mt-4 text-center text-muted-foreground">
+                <span className="font-semibold text-primary">Click to upload</span> or drag and drop
+            </p>
+            <p className="text-xs text-muted-foreground">PNG, JPG, WebP up to 10MB</p>
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png, image/jpeg, image/webp"
+                onChange={onFileChange}
+                className="hidden"
+            />
+        </div>
+        <div className="relative flex items-center py-4">
+            <div className="flex-grow border-t" />
+            <span className="flex-shrink mx-4 text-xs uppercase text-muted-foreground">Or</span>
+            <div className="flex-grow border-t" />
+        </div>
+        <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleDriveClick}
+            disabled={!isPickerApiReady || !tokenClient || (isProcessing && !imageFile)}
+        >
+            {(isProcessing && !imageFile) ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+                <FolderUp className="mr-2 h-4 w-4" />
+            )}
+            Upload from Google Drive
+        </Button>
+    </>
   );
   
   const renderPreviewState = () => imageFile && (
