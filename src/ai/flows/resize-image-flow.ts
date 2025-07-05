@@ -128,17 +128,9 @@ const resizeImageFlow = ai.defineFlow(
         const thumbnailPath = `thumbnails/${newFileName}`;
         const resizedImagePath = `resized/${newFileName}`;
         
-        let thumbnailUrl: string;
-        let resizedImageUrl: string;
-
-        try {
-            const thumbnailBuffer = await sharp(imageBuffer).resize(100, 100, { fit: 'inside' }).jpeg({ quality: 50 }).toBuffer();
-            thumbnailUrl = await uploadImageAndGetUrl(thumbnailBuffer, thumbnailPath, 'image/jpeg');
-            resizedImageUrl = await uploadImageAndGetUrl(resizedBuffer, resizedImagePath, mimeType);
-        } catch (uploadError) {
-            console.error("Failed to save resized image:", uploadError);
-            throw new Error("Unable to save image.");
-        }
+        const thumbnailBuffer = await sharp(imageBuffer).resize(100, 100, { fit: 'inside' }).jpeg({ quality: 50 }).toBuffer();
+        const thumbnailUrl = await uploadImageAndGetUrl(thumbnailBuffer, thumbnailPath, 'image/jpeg');
+        const resizedImageUrl = await uploadImageAndGetUrl(resizedBuffer, resizedImagePath, mimeType);
 
         const historyEntry: HistoryEntryCreate = {
             fileName: newFileName,
@@ -177,7 +169,12 @@ const resizeImageFlow = ai.defineFlow(
 );
 
 async function uploadImageAndGetUrl(buffer: Buffer, path: string, mimeType: string): Promise<string> {
-    const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, buffer, { contentType: mimeType });
-    return getDownloadURL(storageRef);
+    try {
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, buffer, { contentType: mimeType });
+        return await getDownloadURL(storageRef);
+    } catch (error) {
+        console.error(`Failed to save image to Firebase Storage at path: ${path}`, error);
+        throw new Error("Unable to save image.");
+    }
 }
