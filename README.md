@@ -88,7 +88,7 @@ Not before. Not during.
 
 ## 🌐 Try it now
 
-👉 [https://pansuriyaforam.github.io/SizeItRight/](https://pansuriyaforam.github.io/SizeItRight/)  
+👉 [https://size-it-right.vercel.app/](https://size-it-right.vercel.app/)  
 _(Replace with your actual URL if different)_
 
 ---
